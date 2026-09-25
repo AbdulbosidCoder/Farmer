@@ -1,0 +1,69 @@
+{
+  "generation": 6,
+  "agent_template": "agents/base/main.py",
+  "fitness": 1.1145307982535515,
+  "winrate": 1.0,
+  "margin": 0.14296286923437598,
+  "avg_money": 43049.36363636364,
+  "v8_winrate": null,
+  "pop_winrate_vs_v8": null,
+  "pop_winrate_vs_starter": null,
+  "pop_winrate_vs_hof": 0.5,
+  "games": 60,
+  "errors": 0,
+  "seconds": 83.6,
+  "population": [
+    {
+      "fitness": 1.1145,
+      "winrate": 1.0,
+      "money": 43049
+    },
+    {
+      "fitness": 0.9549,
+      "winrate": 0.818,
+      "money": 42158
+    },
+    {
+      "fitness": 0.782,
+      "winrate": 0.667,
+      "money": 37985
+    },
+    {
+      "fitness": 0.7753,
+      "winrate": 0.636,
+      "money": 43749
+    },
+    {
+      "fitness": 0.6089,
+      "winrate": 0.5,
+      "money": 41562
+    },
+    {
+      "fitness": 0.5362,
+      "winrate": 0.5,
+      "money": 36939
+    },
+    {
+      "fitness": 0.4016,
+      "winrate": 0.4,
+      "money": 33557
+    },
+    {
+      "fitness": 0.0683,
+      "winrate": 0.125,
+      "money": 32049
+    },
+    {
+      "fitness": 0.059,
+      "winrate": 0.1,
+      "money": 31350
+    },
+    {
+      "fitness": 0.028,
+      "winrate": 0.167,
+      "money": 25139
+    }
+  ],
+  "gate_winrate_vs_best": 0.5,
+  "promoted_to_best": false
+}
