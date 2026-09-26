@@ -70,3 +70,5 @@ python scripts/make_submission.py            # из avlod/best (или --gen 7)
 pytest -q tests/
 kaggle competitions submit kaggriculture -f submission/main.py -m "avlod best"
 ```
+
+
