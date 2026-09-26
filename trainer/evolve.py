@@ -15,7 +15,10 @@ Every generation:
 Usage:
     python -m trainer.evolve --generations 30 --pop 12 --workers 4
     python -m trainer.evolve --resume              # continue from the last avlod
-    python -m trainer.evolve --agent agents/v8/main.py   # evolve v8's own PARAMS
+    python -m trainer.evolve --agent agents/v8/main.py --fresh --out avlod_v8
+        # v8 has no PARAMS dict: its numeric module constants are evolved instead,
+        # limited to the names/ranges in agents/v8/bounds.json (main.py is not edited;
+        # every generation's main.py is v8 with only those numbers changed).
 """
 import argparse
 import csv
@@ -31,6 +34,14 @@ from trainer import common as C
 
 
 # ------------------------------------------------------------------ genome
+# Module constants never evolved automatically (without a bounds.json): game rules,
+# indices into lists (a Gaussian step over an index is meaningless) and sentinels.
+GAME_RULE_CONSTANTS = {
+    "SEASON_DAYS", "SHED_CAPACITY", "TOWN_CENTER_INTERVAL", "SHOP_SELL_INTERVAL",
+    "MAX_MARKET_ORDERS", "DROP_ANCHOR", "CROP_MIX_ID", "HANDS_MONEY_GATE",
+}
+
+
 def auto_bounds(params):
     b = {}
     for k, v in params.items():
@@ -87,12 +98,36 @@ def run(args):
     agent_path = os.path.abspath(args.agent)
     template = C.read(agent_path)
     seed_params = C.extract_params(template)
-    if not seed_params:
-        sys.exit(f"{agent_path}: no PARAMS dict literal found - cannot evolve this agent")
-    bounds = C.extract_bounds(template) or auto_bounds(seed_params)
-    bounds = {k: v for k, v in bounds.items() if k in seed_params}
+    if seed_params:
+        bounds = C.extract_bounds(template) or C.load_sidecar_bounds(agent_path) or auto_bounds(seed_params)
+    else:
+        # No PARAMS dict (e.g. agents/v8/main.py): evolve its numeric module constants.
+        consts = C.extract_constants(template)
+        bounds = C.extract_bounds(template) or C.load_sidecar_bounds(agent_path)
+        if not bounds:
+            bounds = {k: v for k, v in auto_bounds(consts).items() if k not in GAME_RULE_CONSTANTS}
+        missing = sorted(set(bounds) - set(consts))
+        if missing:
+            print(f"warning: not numeric constants in {os.path.basename(agent_path)}, ignored: {', '.join(missing)}")
+        seed_params = {k: consts[k] for k in bounds if k in consts}
+        if not seed_params:
+            sys.exit(f"{agent_path}: no PARAMS dict and no numeric module constants to evolve")
+        print(f"evolving {len(seed_params)} module constants of {os.path.relpath(agent_path, C.ROOT)}: "
+              + ", ".join(seed_params))
+    bounds = {k: tuple(v) for k, v in bounds.items() if k in seed_params}
+    # constants that are ints in the source stay ints (params.json then matches main.py)
+    int_keys = set() if C.extract_params(template) else {k for k, v in seed_params.items() if isinstance(v, int)}
 
+    def snap(p):
+        return {k: (int(round(v)) if k in int_keys else v) for k, v in p.items()}
+    # generation 0 must be byte-for-byte the original agent
+    if C.render(template, seed_params) != template and C.extract_params(template) is None:
+        sys.exit(f"{agent_path}: rendering constants changed the file - refusing to evolve")
+
+    if args.out:
+        C.AVLOD_DIR = os.path.abspath(os.path.join(C.ROOT, args.out))
     os.makedirs(C.AVLOD_DIR, exist_ok=True)
+    print(f"generations -> {os.path.relpath(C.AVLOD_DIR, C.ROOT)}/")
     state_path = os.path.join(C.AVLOD_DIR, "population.json")
     gens = list_generations()
     start_gen = 1
@@ -110,7 +145,7 @@ def run(args):
             sys.exit("avlod/ already has generations: use --resume to continue or --fresh to start over")
         pop = [{"params": dict(seed_params), "fitness": 0.0}]
         while len(pop) < args.pop:
-            pop.append({"params": mutate(seed_params, bounds, rng, 0.5, 0.15), "fitness": 0.0})
+            pop.append({"params": snap(mutate(seed_params, bounds, rng, 0.5, 0.15)), "fitness": 0.0})
 
     rng = random.Random(args.seed * 1000 + start_gen)
     v8_src = C.read(C.V8_AGENT) if os.path.exists(C.V8_AGENT) and not args.no_v8 else None
@@ -238,6 +273,13 @@ def run(args):
                             stats["v8_winrate"], stats["pop_winrate_vs_starter"], stats["pop_winrate_vs_hof"],
                             stats.get("gate_winrate_vs_best"), promoted, stats["seconds"]])
 
+            if not args.no_progress:
+                try:
+                    from trainer import viz
+                    viz.write(os.path.join(C.AVLOD_DIR, "progress.html"), viz.progress_report(C.AVLOD_DIR))
+                except Exception as e:  # a report must never stop training
+                    print(f"progress.html not written: {e!r}")
+
             print(f"[avlod {gen:03d}] fitness={champ['fitness']:.3f} winrate={champ['winrate']:.2f} "
                   f"money={champ['money']:.0f} v8={champ['v8_winrate']} best={'NEW' if promoted else 'kept'} "
                   f"({stats['seconds']}s, {len(results)} games)", flush=True)
@@ -252,7 +294,7 @@ def run(args):
                     child = crossover(a["params"], b["params"], bounds, rng)
                 else:
                     child = dict(a["params"])
-                nxt.append({"params": mutate(child, bounds, rng, args.mut_rate, sigma), "fitness": 0.0})
+                nxt.append({"params": snap(mutate(child, bounds, rng, args.mut_rate, sigma)), "fitness": 0.0})
             C.save_json(state_path, {"generation": gen, "population": [{"params": c["params"], "fitness": c["fitness"]} for c in nxt]})
             pop = nxt
     finally:
@@ -280,6 +322,10 @@ def main():
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--fresh", action="store_true", help="allow starting a new run even if avlod/ has generations")
     ap.add_argument("--no-v8", action="store_true")
+    ap.add_argument("--out", default=None,
+                    help="folder for generations/best/history (default: avlod). Use a separate one, e.g. "
+                         "avlod_v8, so a v8 run does not overwrite the generations of the base agent")
+    ap.add_argument("--no-progress", action="store_true", help="do not write <out>/progress.html after each generation")
     run(ap.parse_args())
 
 
