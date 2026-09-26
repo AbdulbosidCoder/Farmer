@@ -5,6 +5,7 @@ Which agents are tested:
   * avlod/best/main.py           - current best generation (if trained)
   * avlod/avlod_NNN/main.py      - the latest generation (if trained)
   * agents/v8/main.py            - your v8 (if present)
+  * agents/v9/main.py            - market/map-aware agent (if present)
   * submission/main.py           - built by scripts/make_submission.py (if present)
 Extra files can be added with:  KAGG_AGENTS=path1,path2 pytest tests/
 
@@ -58,7 +59,8 @@ def _agent_files():
     gens = sorted(glob.glob(os.path.join(ROOT, "avlod", "avlod_[0-9]*", "main.py")))
     if gens:
         files.append(gens[-1])
-    for extra in (os.path.join(ROOT, "agents", "v8", "main.py"), os.path.join(ROOT, "submission", "main.py")):
+    for extra in (os.path.join(ROOT, "agents", "v8", "main.py"), os.path.join(ROOT, "agents", "v9", "main.py"),
+                  os.path.join(ROOT, "submission", "main.py")):
         if os.path.exists(extra):
             files.append(extra)
     for extra in filter(None, os.environ.get("KAGG_AGENTS", "").split(",")):

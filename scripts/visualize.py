@@ -4,6 +4,7 @@
     python scripts/visualize.py game --a agents/v8/main.py --b starter --seed 7
     python scripts/visualize.py game --gen 12 --b agents/v8/main.py   # avlod_012 vs v8
     python scripts/visualize.py game --replay                         # + official Kaggle replay (~15 MB)
+    python scripts/visualize.py episode 113630705.json                # a game downloaded from Kaggle
     python scripts/visualize.py progress                              # avlod/progress.html
     python scripts/visualize.py progress --dir avlod_v8
 
@@ -66,6 +67,38 @@ def cmd_game(args):
         webbrowser.open("file://" + os.path.abspath(out))
 
 
+class _Rec(dict):
+    """dict with attribute access, so a Kaggle episode JSON looks like env.steps."""
+    __getattr__ = dict.get
+
+
+def cmd_episode(args):
+    import json
+
+    with open(args.file, encoding="utf-8") as f:
+        ep = json.load(f)
+    steps = [[_Rec(action=s.get("action"), reward=s.get("reward"), status=s.get("status"),
+                   observation=s.get("observation") or {}) for s in row] for row in ep["steps"]]
+    # public state (farms, market, town, day, hour) is stored with player 0 only on some exports
+    for row in steps:
+        o0 = row[0].observation
+        for r in row[1:]:
+            for k in ("farms", "market", "town", "day", "hour", "step"):
+                if k in o0 and k not in r.observation:
+                    r.observation[k] = o0[k]
+    info = ep.get("info") or {}
+    names = info.get("TeamNames") or ["player 0", "player 1"]
+    env = _Rec(steps=steps)
+    stem = args.out or os.path.join(ROOT, "replays", f"episode_{info.get('EpisodeId', 'kaggle')}")
+    stem = stem[:-5] if stem.endswith(".html") else stem
+    out = viz.write(stem + ".html", viz.game_report(env, names, seed=info.get("seed")))
+    for p in (0, 1):
+        print(f"  {names[p]:<28} ${ep['rewards'][p] or 0:>10,.0f}")
+    print(f"report  -> {os.path.relpath(out, ROOT)}")
+    if args.open:
+        webbrowser.open("file://" + os.path.abspath(out))
+
+
 def cmd_progress(args):
     d = os.path.join(ROOT, args.dir)
     out = viz.write(args.out or os.path.join(d, "progress.html"), viz.progress_report(d))
@@ -89,6 +122,11 @@ def main():
     g.add_argument("--out", default=None, help="output path without .html")
     g.add_argument("--open", action="store_true")
     g.set_defaults(fn=cmd_game)
+    e = sub.add_parser("episode", help="HTML report of an episode JSON downloaded from Kaggle")
+    e.add_argument("file")
+    e.add_argument("--out", default=None)
+    e.add_argument("--open", action="store_true")
+    e.set_defaults(fn=cmd_episode)
     p = sub.add_parser("progress", help="write the training-progress HTML of a generations folder")
     p.add_argument("--dir", default="avlod")
     p.add_argument("--out", default=None)

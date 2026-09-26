@@ -154,6 +154,9 @@ def run(args):
     else:
         print("benchmark: agents/v8/main.py not found - training vs self-play + hall of fame + starter")
 
+    extra = [C.read(os.path.abspath(p)) for p in (args.extra_opponents or [])]
+    if extra:
+        print("fixed opponents: " + ", ".join(args.extra_opponents))
     hist_path = os.path.join(C.AVLOD_DIR, "history.csv")
     pool = Pool(args.workers)
     try:
@@ -174,6 +177,9 @@ def run(args):
                 if v8_src:
                     opps += [("v8", None)] * args.games_v8
                 opps += [("starter", None)] * args.games_starter
+                # forced map sizes: 0..3 land buys = 5x5, 5x10, 5x10+5x5, 10x10
+                opps += [("map", g % 4) for g in range(args.games_maps)]
+                opps += [("extra", g % len(extra)) for g in range(args.games_extra if extra else 0)]
                 for g, (kind, j) in enumerate(opps):
                     seed = rng.randrange(1, 2**31)
                     if kind == "self":
@@ -182,18 +188,23 @@ def run(args):
                         osrc = hof[j]
                     elif kind == "v8":
                         osrc = v8_src
+                    elif kind == "extra":
+                        osrc = extra[j]
+                    elif kind == "map":
+                        osrc = C.read(best_path) if os.path.exists(best_path) else "starter"
                     else:
                         osrc = "starter"
                     seat = g % 2  # alternate seats: the engine is symmetric but be safe
-                    pair = (pop[i]["src"], osrc) if seat == 0 else (osrc, pop[i]["src"])
+                    msrc = C.force_land(pop[i]["src"], j) if kind == "map" else pop[i]["src"]
+                    pair = (msrc, osrc) if seat == 0 else (osrc, msrc)
                     jobs.append(((i, kind, j, seat), pair[0], pair[1], seed))
 
             results = pool.map(C.play_job, jobs, chunksize=1)
-            vs = {"v8": [], "starter": [], "hof": []}
+            vs = {"v8": [], "starter": [], "hof": [], "map": [], "extra": []}
             for (i, kind, j, seat), r in results:
                 me, opp = r["rewards"][seat], r["rewards"][1 - seat]
                 w, m = game_score(me, opp, r["statuses"][seat])
-                pop[i]["games"].append((kind, w, m, me or 0.0))
+                pop[i]["games"].append((("map", j) if kind == "map" else kind, w, m, me or 0.0))
                 # self-play games also count (mirrored) for the opponent candidate
                 if kind == "self":
                     w2, m2 = game_score(opp, me, r["statuses"][1 - seat])
@@ -230,6 +241,12 @@ def run(args):
                 "pop_winrate_vs_v8": (sum(vs["v8"]) / len(vs["v8"])) if vs["v8"] else None,
                 "pop_winrate_vs_starter": (sum(vs["starter"]) / len(vs["starter"])) if vs["starter"] else None,
                 "pop_winrate_vs_hof": (sum(vs["hof"]) / len(vs["hof"])) if vs["hof"] else None,
+                "pop_winrate_vs_extra": (sum(vs["extra"]) / len(vs["extra"])) if vs["extra"] else None,
+                "pop_winrate_maps": (sum(vs["map"]) / len(vs["map"])) if vs["map"] else None,
+                "champion_money_by_map": {name: round(sum(x[3] for x in champ["games"] if x[0] == ("map", k)) /
+                                                      max(1, sum(1 for x in champ["games"] if x[0] == ("map", k))))
+                                          for k, name in enumerate(["5x5", "5x10", "5x10+5x5", "10x10"])}
+                if vs["map"] else None,
                 "games": len(results),
                 "errors": sum(1 for _, r in results if "ERROR" in r["statuses"]),
                 "seconds": round(time.time() - t0, 1),
@@ -312,7 +329,12 @@ def main():
     ap.add_argument("--games-hof", type=int, default=2)
     ap.add_argument("--games-v8", type=int, default=2)
     ap.add_argument("--games-starter", type=int, default=0)
+    ap.add_argument("--games-maps", type=int, default=0,
+                    help="games per candidate on forced map sizes (cycled 5x5, 5x10, 5x10+5x5, 10x10) vs avlod best")
     ap.add_argument("--hof-size", type=int, default=5)
+    ap.add_argument("--extra-opponents", nargs="*", default=None,
+                    help="fixed opponent main.py files every candidate plays (e.g. avlod/best/main.py)")
+    ap.add_argument("--games-extra", type=int, default=4, help="games per candidate vs --extra-opponents")
     ap.add_argument("--gate-games", type=int, default=6)
     ap.add_argument("--mut-rate", type=float, default=0.25)
     ap.add_argument("--sigma", type=float, default=0.12)

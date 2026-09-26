@@ -2,6 +2,7 @@
 
     python scripts/make_submission.py              # from avlod/best
     python scripts/make_submission.py --gen 7      # from avlod/avlod_007
+    python scripts/make_submission.py --src agents/v9/main.py
 
 Creates submission/main.py and submission/submission.tar.gz (main.py at the root).
 Then:  kaggle competitions submit kaggriculture -f submission/main.py -m "avlod 7"
@@ -17,8 +18,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gen", type=int, default=None)
+    ap.add_argument("--avlod", default="avlod", help="generations folder for --gen / best (e.g. avlod_v9)")
+    ap.add_argument("--src", default=None, help="any agent main.py (overrides --gen)")
     args = ap.parse_args()
-    src = os.path.join(ROOT, "avlod", "best" if args.gen is None else f"avlod_{args.gen:03d}", "main.py")
+    src = os.path.abspath(args.src) if args.src else os.path.join(
+        ROOT, args.avlod, "best" if args.gen is None else f"avlod_{args.gen:03d}", "main.py")
     if not os.path.exists(src):
         raise SystemExit(f"{src} not found - train first: python -m trainer.evolve")
     out = os.path.join(ROOT, "submission")

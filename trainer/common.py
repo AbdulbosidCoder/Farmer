@@ -130,6 +130,30 @@ def render(src, params):
     return src[: idx + 1] + upd + src[idx + 1 :]
 
 
+def force_land(src, k):
+    """Agent source forced to buy exactly k quadrants, as early as affordable."""
+    params = extract_params(src)
+    if params is not None:  # PARAMS agents (agents/base, avlod/*)
+        params = dict(params)
+        params.update({"max_land": k, "land_need": 99.0, "land1_day": 0.0, "land2_day": 0.0,
+                       "land3_day": 0.0, "land_last_day": 26.0, "land_reserve": 0.0})
+        if "max_land" not in extract_params(src):
+            # old template without max_land: cap by the last allowed day instead
+            params["land_last_day"] = 26.0 if k else -1.0
+            params.pop("max_land")
+            params.pop("land_need")
+            for j in range(k + 1, 4):
+                params[f"land{j}_day"] = 99.0
+        return render(src, params)
+    consts = extract_constants(src)
+    if "MAX_LAND_BUYS" in consts:  # v8 style
+        over = {"MAX_LAND_BUYS": k}
+        if "LAND_MIN_DAY" in consts:
+            over["LAND_MIN_DAY"] = 0
+        return render(src, over)
+    return src
+
+
 def _clean(v):
     if isinstance(v, float):
         return round(v, 4)
