@@ -1,0 +1,111 @@
+<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Training progress · avlod</title><style>
+:root{color-scheme:light;--bg:#f6f6f4;--surface:#fcfcfb;--border:#e4e3df;--grid:#ecebe7;
+--text:#0b0b0b;--text2:#52514e;--muted:#8a8984;--s1:#2a78d6;--s2:#eb6834;
+--crop:#cfe9da;--crop-ink:#0f5a3c;--animal:#fbd9c9;--animal-ink:#8a3413;--struct:#e8e6f5;
+--struct-ink:#3d3290;--weed:#f6d2d2;--weed-ink:#8f1f1f;--locked:#e7e6e2;--shed:#fff1c7}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#121211;
+--surface:#1a1a19;--border:#2e2e2b;--grid:#262624;--text:#fff;--text2:#c3c2b7;--muted:#8d8c85;
+--s1:#3987e5;--s2:#d95926;--crop:#153d2c;--crop-ink:#8fe0b9;--animal:#4a2414;--animal-ink:#ffb996;
+--struct:#27234a;--struct-ink:#b9b1ff;--weed:#4a1b1b;--weed-ink:#ff9f9f;--locked:#232321;--shed:#3d3413}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#121211;--surface:#1a1a19;--border:#2e2e2b;
+--grid:#262624;--text:#fff;--text2:#c3c2b7;--muted:#8d8c85;--s1:#3987e5;--s2:#d95926;--crop:#153d2c;
+--crop-ink:#8fe0b9;--animal:#4a2414;--animal-ink:#ffb996;--struct:#27234a;--struct-ink:#b9b1ff;
+--weed:#4a1b1b;--weed-ink:#ff9f9f;--locked:#232321;--shed:#3d3413}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);
+font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:0 0 10px}
+.sub{color:var(--text2);margin:0 0 20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin:0 0 16px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:0 0 16px}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.tile .k{color:var(--text2);font-size:12px}.tile .v{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--text2);font-size:12px;margin:0 0 6px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+svg text{fill:var(--muted);font-size:11px;font-family:inherit}
+.tip{position:fixed;pointer-events:none;background:var(--surface);border:1px solid var(--border);
+border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.15);display:none;z-index:9;
+font-variant-numeric:tabular-nums}
+table{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
+th,td{padding:4px 8px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}th{color:var(--text2);font-weight:600}
+.scroll{overflow-x:auto}
+.farm{display:grid;grid-template-columns:repeat(10,1fr);gap:2px;max-width:360px}
+.cell{aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;
+font-size:11px;font-weight:600;position:relative;border:1px solid var(--border);background:var(--surface)}
+.cell.locked{background:var(--locked);border-color:transparent}
+.cell.crop{background:var(--crop);color:var(--crop-ink);border-color:transparent}
+.cell.animal{background:var(--animal);color:var(--animal-ink);border-color:transparent}
+.cell.struct{background:var(--struct);color:var(--struct-ink);border-color:transparent}
+.cell.weed{background:var(--weed);color:var(--weed-ink);border-color:transparent}
+.cell.shed{outline:2px dashed var(--muted);outline-offset:-3px}
+.cell .u{position:absolute;right:1px;bottom:0;font-size:9px;color:var(--text)}
+.ctrl{display:flex;align-items:center;gap:12px;margin:0 0 12px;flex-wrap:wrap}
+input[type=range]{flex:1;min-width:200px}
+.muted{color:var(--muted)}.small{font-size:12px}
+.bar{height:8px;border-radius:0 4px 4px 0;display:inline-block;vertical-align:middle}
+</style></head><body><main><h1>Training progress · avlod</h1><p class='sub'>Self-play evolution, one row per generation</p><div class='tiles'><div class='tile'><div class='k'>Generations</div><div class='v'>20</div><div class='k'>agents/base/main.py</div></div><div class='tile'><div class='k'>Best agent</div><div class='v'>avlod 20</div><div class='k'>avg $61,622</div></div><div class='tile'><div class='k'>Last champion money</div><div class='v'>$61,622</div><div class='k'>generation 20</div></div><div class='tile'><div class='k'>Promotions to best</div><div class='v'>11</div><div class='k'>gate win rate > 50%</div></div></div>
+<div class='grid2'><div class='card'><h2>Champion fitness</h2><div id='fit'></div>
+<p class='small muted'>Dots: champion promoted to best.</p></div>
+<div class='card'><h2>Champion average money</h2><div id='money'></div></div></div>
+<div class='card'><h2>Win rates</h2><div id='wr'></div>
+<p class='small muted'>champion = all games of the champion; vs v8 = champion vs agents/v8; vs hall of fame =
+whole population vs earlier champions; gate = champion vs current best (promoted if &gt; 50%).</p></div>
+<div class='card'><h2>Generations</h2><div class='scroll' id='tbl'></div></div></main><div class='tip'></div><script>const DATA={"gens":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],"fitness":[1.2058,1.1863,1.2532,1.0727,0.9022,1.1145,0.9712,0.8593,0.9581,0.9752,0.9884,1.1354,1.0245,1.2357,1.141,1.2319,0.9626,1.0404,0.9441,1.1652],"winrate":[1.0,1.0,1.0,0.917,0.818,1.0,0.889,0.75,0.857,0.875,0.889,1.0,0.9,1.0,1.0,1.0,0.833,0.9,0.833,1.0],"money":[32964.0,38414.0,46719.0,40585.0,37379.0,43049.0,41174.0,40008.0,43864.0,43838.0,45931.0,51651.0,50690.0,67250.0,61625.0,67675.0,64048.0,67087.0,62324.0,61622.0],"v8":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"hof":[null,0.2,0.25,0.45,0.35,0.5,0.55,0.35,0.65,0.55,0.4,0.3,0.35,0.15,0.55,0.575,0.725,0.625,0.55,0.425],"gate":[null,1.0,1.0,0.3333333333333333,0.0,0.5,0.5,0.16666666666666666,0.8333333333333334,0.5,0.8333333333333334,0.8333333333333334,0.3333333333333333,1.0,1.0,1.0,0.5,0.5,0.8333333333333334,0.6666666666666666],"starter":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"seconds":[51.6,62.2,75.0,80.4,83.6,83.6,81.8,84.4,87.3,88.2,89.1,87.1,88.0,85.6,82.1,76.7,72.3,72.3,71.3,69.9],"promoted":[0,1,2,8,10,11,13,14,15,18,19],"templates":["agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py","agents/base/main.py"]};
+const tip=document.querySelector('.tip');
+function fmt(v,f){if(v==null||isNaN(v))return'–';if(f==='pct')return(100*v).toFixed(0)+'%';
+ if(f==='money')return'$'+Math.round(v).toLocaleString();if(f==='int')return Math.round(v).toLocaleString();
+ return(+v).toFixed(3)}
+function css(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+const CHARTS=[];let rt;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>CHARTS.forEach(([e,o])=>draw(e,o)),150)});
+function lineChart(el,o){CHARTS.push([el,o]);draw(el,o)}
+function draw(el,o){
+ const W=Math.max(240,el.clientWidth||560),H=o.h||220,m={l:54,r:o.endLabels?74:12,t:10,b:28};
+ const xs=o.x, n=xs.length; let lo=o.ymin, hi=o.ymax;
+ const all=o.series.flatMap(s=>s.values.filter(v=>v!=null));
+ if(lo==null)lo=Math.min(0,...all); if(hi==null)hi=Math.max(...all,lo+1);
+ const X=i=>m.l+(n<2?0:i/(n-1))*(W-m.l-m.r), Y=v=>H-m.b-(v-lo)/(hi-lo||1)*(H-m.t-m.b);
+ let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${o.title||''}">`;
+ for(let k=0;k<=4;k++){const v=lo+(hi-lo)*k/4,y=Y(v);
+  s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}" stroke="var(--grid)"/>`+
+     `<text x="${m.l-6}" y="${y+4}" text-anchor="end">${fmt(v,o.yfmt)}</text>`}
+ const nt=Math.max(2,Math.min(n,Math.floor(W/70)));
+ const st=Math.max(1,Math.ceil((n-1)/(nt-1)));let ticks=o.xticks;
+ if(!ticks){ticks=[];for(let i=0;i<n;i+=st)ticks.push(i);if(n-1-ticks[ticks.length-1]>=st/2)ticks.push(n-1)}
+ for(const i of ticks){s+=`<text x="${X(i)}" y="${H-8}" text-anchor="middle">${o.xfmt?o.xfmt(xs[i]):xs[i]}</text>`}
+ o.series.forEach(se=>{let d='',pen=false;se.values.forEach((v,i)=>{if(v==null){pen=false;return}
+  d+=(pen?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1);pen=true});
+  s+=`<path d="${d}" fill="none" stroke="${se.color}" stroke-width="2" stroke-linejoin="round"/>`;
+  (se.markers||[]).forEach(i=>{if(se.values[i]!=null)s+=`<circle cx="${X(i)}" cy="${Y(se.values[i])}" r="4" fill="${se.color}" stroke="var(--surface)" stroke-width="2"/>`});
+  if(o.endLabels){let i=se.values.length-1;while(i>0&&se.values[i]==null)i--;
+   s+=`<text x="${X(i)+6}" y="${Y(se.values[i])+4}" style="fill:var(--text2)">${se.name}</text>`}});
+ s+=`<line class="xh" x1="0" x2="0" y1="${m.t}" y2="${H-m.b}" stroke="var(--muted)" stroke-dasharray="3 3" visibility="hidden"/>`;
+ s+=`<rect x="${m.l}" y="0" width="${W-m.l-m.r}" height="${H}" fill="transparent"/></svg>`;
+ el.innerHTML=(o.series.length>1?'<div class="legend">'+o.series.map(se=>`<span><span class="sw" style="background:${se.color}"></span>${se.name}</span>`).join('')+'</div>':'')+s;
+ const svg=el.querySelector('svg'),xh=svg.querySelector('.xh');
+ svg.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width;
+  const i=Math.max(0,Math.min(n-1,Math.round((px-m.l)/(W-m.l-m.r)*(n-1))));
+  xh.setAttribute('x1',X(i));xh.setAttribute('x2',X(i));xh.setAttribute('visibility','visible');
+  tip.innerHTML=`<b>${o.xname||''} ${o.xfmt?o.xfmt(xs[i]):xs[i]}</b><br>`+o.series.map(se=>
+   `<span class="sw" style="background:${se.color}"></span>${se.name}: <b>${fmt(se.values[i],o.yfmt)}</b>`).join('<br>');
+  tip.style.display='block';tip.style.left=Math.min(e.clientX+14,innerWidth-200)+'px';tip.style.top=(e.clientY+14)+'px'});
+ svg.addEventListener('mouseleave',()=>{tip.style.display='none';xh.setAttribute('visibility','hidden')});
+}
+
+const G=DATA.gens,C1=css('--s1'),C2=css('--s2'),x=G.map(g=>g);
+if(!G.length){document.querySelector('main').insertAdjacentHTML('beforeend','<p>No history.csv yet - train first.</p>')}
+else{
+lineChart(document.getElementById('fit'),{x,xname:'generation',series:[{name:'fitness',color:C1,values:DATA.fitness,markers:DATA.promoted}]});
+lineChart(document.getElementById('money'),{x,xname:'generation',yfmt:'money',series:[{name:'avg money',color:C1,values:DATA.money,markers:DATA.promoted}]});
+const S=[{name:'champion',color:C1,values:DATA.winrate},{name:'vs v8',color:C2,values:DATA.v8},
+ {name:'vs hall of fame',color:css('--crop-ink'),values:DATA.hof},{name:'gate vs best',color:css('--struct-ink'),values:DATA.gate}]
+ .filter(s=>s.values.some(v=>v!=null));
+lineChart(document.getElementById('wr'),{x,xname:'generation',yfmt:'pct',ymin:0,ymax:1,h:240,endLabels:true,series:S});
+const f=(v,t)=>v==null?'–':fmt(v,t);
+document.getElementById('tbl').innerHTML='<table><tr><th>gen</th><th>template</th><th>fitness</th><th>winrate</th><th>avg money</th><th>vs v8</th><th>vs HoF</th><th>gate</th><th>best</th><th>sec</th></tr>'+
+ G.map((g,i)=>`<tr><td>${g}</td><td>${DATA.templates[i]||''}</td><td>${f(DATA.fitness[i])}</td><td>${f(DATA.winrate[i],'pct')}</td><td>${f(DATA.money[i],'money')}</td>
+ <td>${f(DATA.v8[i],'pct')}</td><td>${f(DATA.hof[i],'pct')}</td><td>${f(DATA.gate[i],'pct')}</td><td>${DATA.promoted.includes(i)?'★':''}</td><td>${f(DATA.seconds[i],'int')}</td></tr>`).join('')+'</table>'}
+</script></body></html>

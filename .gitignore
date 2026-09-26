@@ -4,3 +4,4 @@ __pycache__/
 .pytest_cache/
 submission/
 avlod/population.json.tmp
+replays/

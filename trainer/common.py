@@ -45,11 +45,79 @@ def extract_bounds(src):
     return None
 
 
+def _number_node(node):
+    """Value of an int/float literal (also `-5`), else None. Booleans are not numbers here."""
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+        v = _number_node(node.operand)
+        return None if v is None else (-v if isinstance(node.op, ast.USub) else v)
+    if isinstance(node, ast.Constant) and not isinstance(node.value, bool) and isinstance(node.value, (int, float)):
+        return node.value
+    return None
+
+
+def _constant_nodes(src):
+    """Top-level `NAME = <number>` assignments -> {name: value node}.
+
+    Agents like agents/v8/main.py keep their knobs as plain module constants
+    instead of a PARAMS dict; these are what the trainer evolves for them."""
+    out = {}
+    for node in ast.parse(src).body:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name) and node.targets[0].id.isupper()
+                and _number_node(node.value) is not None):
+            out[node.targets[0].id] = node.value
+    return out
+
+
+def extract_constants(src):
+    """Numeric module-level constants of an agent without a PARAMS dict."""
+    return {k: _number_node(v) for k, v in _constant_nodes(src).items()}
+
+
+def load_sidecar_bounds(agent_path):
+    """`bounds.json` next to the agent: {"NAME": [min, max], ...} (keeps main.py untouched)."""
+    path = os.path.join(os.path.dirname(os.path.abspath(agent_path)), "bounds.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        raw = json.load(f)
+    return {k: tuple(v) for k, v in raw.items() if not k.startswith("_")}
+
+
+def render_constants(src, params):
+    """Return agent source with the literal values of module constants replaced.
+
+    Only the number itself is rewritten (comments and the rest of the line stay),
+    and a constant that was an int in the source stays an int - v8 uses them for
+    slicing/ranges, where a float would raise."""
+    nodes = _constant_nodes(src)
+    lines = src.splitlines(keepends=True)
+    edits = []
+    for k, v in params.items():
+        node = nodes.get(k)
+        if node is None or node.lineno != node.end_lineno:
+            continue
+        orig = _number_node(node)
+        v = int(round(v)) if isinstance(orig, int) else round(float(v), 4)
+        if v == orig:
+            continue  # unchanged value keeps its original spelling (0.60, 999999, ...)
+        edits.append((node.lineno - 1, node.col_offset, node.end_col_offset, repr(v)))
+    # bytes offsets: ast columns are UTF-8 byte offsets
+    for ln, a, b, text in sorted(edits, reverse=True):
+        raw = lines[ln].encode("utf-8")
+        lines[ln] = (raw[:a] + text.encode("utf-8") + raw[b:]).decode("utf-8")
+    return "".join(lines)
+
+
 def render(src, params):
     """Return agent source with PARAMS replaced by `params`.
 
-    Uses the BEGIN/END markers when present; otherwise appends a PARAMS.update()
-    right before the final `def agent` so `agent` stays the last callable."""
+    Uses the BEGIN/END markers when present; for an agent without a PARAMS dict
+    (plain module constants, like v8) rewrites the constants in place; otherwise
+    appends a PARAMS.update() right before the final `def agent` so `agent` stays
+    the last callable."""
+    if not (BEGIN in src and END in src) and extract_params(src) is None:
+        return render_constants(src, params)
     body = "PARAMS = " + pprint.pformat({k: _clean(v) for k, v in params.items()}, sort_dicts=False, width=100)
     if BEGIN in src and END in src:
         a = src.index(BEGIN) + len(BEGIN)
@@ -60,6 +128,30 @@ def render(src, params):
     if idx < 0:
         return src + "\n" + upd
     return src[: idx + 1] + upd + src[idx + 1 :]
+
+
+def force_land(src, k):
+    """Agent source forced to buy exactly k quadrants, as early as affordable."""
+    params = extract_params(src)
+    if params is not None:  # PARAMS agents (agents/base, avlod/*)
+        params = dict(params)
+        params.update({"max_land": k, "land_need": 99.0, "land1_day": 0.0, "land2_day": 0.0,
+                       "land3_day": 0.0, "land_last_day": 26.0, "land_reserve": 0.0})
+        if "max_land" not in extract_params(src):
+            # old template without max_land: cap by the last allowed day instead
+            params["land_last_day"] = 26.0 if k else -1.0
+            params.pop("max_land")
+            params.pop("land_need")
+            for j in range(k + 1, 4):
+                params[f"land{j}_day"] = 99.0
+        return render(src, params)
+    consts = extract_constants(src)
+    if "MAX_LAND_BUYS" in consts:  # v8 style
+        over = {"MAX_LAND_BUYS": k}
+        if "LAND_MIN_DAY" in consts:
+            over["LAND_MIN_DAY"] = 0
+        return render(src, over)
+    return src
 
 
 def _clean(v):
