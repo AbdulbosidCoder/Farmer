@@ -13,6 +13,17 @@ You are Bekhruz's creative agent: one agent with a library of skills in `.claude
 - **timetable**: Telegram chat messages in, today's schedule, the weekly timetable and the task list out
 - **ops**: business automation: repeated work found in notes and chats, SOPs and recurring tasks for the bot
 
+- **hisob**: Uzcard / Humo card notifications and cash in, spending reports and savings out
+
+## Agents (`.claude/agents/`)
+Four agents, each one using its own skills:
+- **scheduler**: Telegram chats → who does what on which day, the daily plan and the timetable (timetable, ops)
+- **hisobchi**: spending from Uzcard / Humo, reports and budget (hisob)
+- **marketing**: the Instagram content plan, hooks, scripts and captions (planner, radar, quill, relay, pulse)
+- **montaj**: raw clip → finished Reel with captions and a cover (reel, pixel)
+
+Hand a task to the agent that owns it. A request that spans several areas (for example "plan the week and edit the clip for Monday") goes to marketing first, then montaj.
+
 Use the skill that matches the task, and only the ones the task needs. A finished reel needs reel and pixel.
 
 ## The shared brain

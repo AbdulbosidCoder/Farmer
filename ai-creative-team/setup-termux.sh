@@ -8,7 +8,9 @@ pkg update -y
 pkg install -y python git rust binutils termux-api tmux
 python -m pip install --upgrade pip
 python -m pip install -r tgbot/requirements.txt
-mkdir -p inbox/telegram inbox/biz out/timetable out/plan
+mkdir -p inbox/telegram inbox/biz out/timetable out/plan out/money
+# Разрешение на чтение SMS (учёт расходов Uzcard/Humo): нажмите «Разрешить» в окне Android
+termux-sms-list -l 1 >/dev/null 2>&1 || true
 [ -f .env ] || cp .env.example .env
 echo
 echo "Готово. Дальше:"

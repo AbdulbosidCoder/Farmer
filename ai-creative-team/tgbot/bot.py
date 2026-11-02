@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import extract  # noqa: E402
+import money  # noqa: E402
 import schedule  # noqa: E402
 import store  # noqa: E402
 
@@ -60,6 +61,13 @@ Jadval:
 /add <matn> — vazifa qo'shish (masalan: /add ertaga 15:00 mijoz bilan uchrashuv)
 /done <id> — bajarildi
 /scan — yangi xabarlardan hozir vazifa ajratish
+
+Xarajatlar (Uzcard / Humo):
+• karta xabarini (HUMO bot, CardXabar, SMS) shu botga forward qiling — avtomatik yoziladi
+/xarajat 25000 taksi — qo'lda xarajat
+/kirim 3000000 oylik — kirim
+/hisobot [today|week|month] — hisobot
+/sms — telefondagi karta SMS larini o'qish (Termux)
 
 Content:
 /plan <mavzu> [kunlar] — content plan (masalan: /plan qahvaxona 14)
@@ -112,6 +120,15 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     chat = update.effective_chat
     user = update.effective_user
+    if chat.type == "private" and allowed(update):
+        tx = money.parse_notification(msg.text or msg.caption, received=msg.date.astimezone(TZ).isoformat())
+        if tx:
+            added = money.add([tx])
+            sign = "➖" if tx["kind"] == "expense" else "➕"
+            await msg.reply_text(
+                (f"💳 Yozildi: {sign} {money._fmt(tx['amount'])} · {tx['card']} {tx['card_last4']}\n"
+                 f"{tx['merchant'] or ''} ({tx['category']})") if added else "Bu operatsiya allaqachon yozilgan.")
+            return
     sender = (user.username and f"@{user.username}") or (user.full_name if user else "?")
     store.save_message(
         chat_id=chat.id,
@@ -250,6 +267,56 @@ async def cmd_plan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                      + f"\n\nFayl: out/plan/{path.name}. Har kun jadvalga qo'shildi (/week).")
 
 
+async def cmd_spent(update: Update, context: ContextTypes.DEFAULT_TYPE, kind: str = "expense") -> None:
+    if not await guard(update):
+        return
+    args = list(context.args or [])
+    m = re.match(r"^([\d\s.,]+?)(k|ming|тыс|mln|млн)?$", args[0].lower()) if args else None
+    if not m:
+        await update.effective_message.reply_text("Misol: /xarajat 25000 taksi   yoki   /xarajat 150k kafe")
+        return
+    amount = float(m.group(1).replace(" ", "").replace(",", "."))
+    amount *= {"k": 1e3, "ming": 1e3, "тыс": 1e3, "mln": 1e6, "млн": 1e6}.get(m.group(2) or "", 1)
+    note = " ".join(args[1:]) or ("xarajat" if kind == "expense" else "kirim")
+    tx = money.manual(amount, note, kind=kind)
+    await update.effective_message.reply_text(
+        f"{'➖' if kind == 'expense' else '➕'} {money._fmt(tx['amount'])} · {note} ({tx['category']})")
+
+
+async def cmd_income(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await cmd_spent(update, context, kind="income")
+
+
+async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await guard(update):
+        return
+    period = (context.args[0].lower() if context.args else "month")
+    period = {"bugun": "today", "kecha": "yesterday", "hafta": "week", "oy": "month", "сегодня": "today",
+              "неделя": "week", "месяц": "month"}.get(period, period)
+    await reply_long(update, money.report(period, today()))
+
+
+async def cmd_sms(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await guard(update):
+        return
+    r = money.import_sms()
+    if not r["ok"]:
+        await update.effective_message.reply_text("⚠️ " + r["error"])
+        return
+    await update.effective_message.reply_text(
+        f"📩 {r['checked']} ta SMS ko'rildi, {r['found']} ta karta operatsiyasi, yangi: {r['added']}.\n/hisobot today")
+
+
+async def sms_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    before = len(money.load())
+    r = money.import_sms()
+    chat_id = store.load_settings().get("report_chat_id")
+    if r.get("ok") and r.get("added") and chat_id:
+        new = money.load()[before:]
+        lines = [f"{'➖' if t['kind'] == 'expense' else '➕'} {money._fmt(t['amount'])} {t['merchant'] or t['card']}" for t in new[-10:]]
+        await context.bot.send_message(chat_id, "💳 Yangi operatsiyalar:\n" + "\n".join(lines))
+
+
 DAY_ALIASES = {
     "du": "mon", "se": "tue", "chor": "wed", "pay": "thu", "ju": "fri", "sha": "sat", "yak": "sun",
     "пн": "mon", "вт": "tue", "ср": "wed", "чт": "thu", "пт": "fri", "сб": "sat", "вс": "sun",
@@ -338,6 +405,8 @@ async def daily_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         log.info("No report chat set (/here); daily plan saved to out/timetable only")
         return
     head = f"☀️ Xayrli tong! {n} ta yangi xabardan {len(added)} ta vazifa topildi ({engine}).\n\n"
+    if money.load():
+        text += "\n\n" + money.report("yesterday", d)
     for i in range(0, len(head + text), 4000):
         await context.bot.send_message(chat_id, (head + text)[i:i + 4000])
 
@@ -385,12 +454,16 @@ def main() -> None:
         "add": cmd_add, "done": cmd_done, "scan": cmd_scan, "plan": cmd_plan,
         "every": cmd_every, "recurring": cmd_recurring, "unevery": cmd_unevery,
         "here": cmd_here, "settime": cmd_settime,
+        "xarajat": cmd_spent, "spent": cmd_spent, "rashod": cmd_spent, "kirim": cmd_income, "income": cmd_income,
+        "hisobot": cmd_report, "report": cmd_report, "sms": cmd_sms,
     }
     for name, fn in commands.items():
         app.add_handler(CommandHandler(name, fn))
     app.add_handler(MessageHandler((filters.TEXT | filters.CAPTION) & ~filters.COMMAND, on_message))
     schedule_daily(app)
     app.job_queue.run_repeating(reminder_job, interval=300, first=30, name="reminders")
+    if os.getenv("SMS_AUTO_IMPORT", "0") == "1":
+        app.job_queue.run_repeating(sms_job, interval=900, first=60, name="sms")
     log.info("Bot ishga tushdi. Daily report at %s (%s)", store.load_settings()["daily_time"], TZ)
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
