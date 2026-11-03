@@ -6,7 +6,7 @@ Built in the Bekhruz AI series "Build Your AI Team". Episode 4 built this as a t
 
 > Looking for the Episode 4 version, the team of separate sub-agents? It is on the [`episode-4` branch](https://github.com/bekhruztbx/ai-creative-team/tree/episode-4).
 
-> **This fork adds** a Telegram bot (`tgbot/`) that reads your chats and sends a daily schedule, plus three skills: **timetable**, **planner** (content plan) and **ops** (business automation). It runs on an Android phone via Termux. Setup guide (in Russian): [PHONE.md](PHONE.md).
+> **This fork adds** a Telegram bot (`tgbot/`) that reads your chats and sends a daily schedule, plus three skills: **timetable**, **planner** (content plan) and **ops** (business automation). It runs on an Android phone via Termux. Setup guide (in Russian): [PHONE.md](PHONE.md). Free hosting ($0) on Render + Neon: [RENDER.md](RENDER.md).
 
 ## The skills
 

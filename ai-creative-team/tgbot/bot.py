@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import db  # noqa: E402
 import extract  # noqa: E402
 import money  # noqa: E402
 import schedule  # noqa: E402
@@ -436,6 +437,10 @@ async def reminder_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         store.save_settings(settings)
 
 
+async def flush_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    db.flush()
+
+
 def schedule_daily(app: Application) -> None:
     for job in app.job_queue.get_jobs_by_name("daily"):
         job.schedule_removal()
@@ -464,8 +469,25 @@ def main() -> None:
     app.job_queue.run_repeating(reminder_job, interval=300, first=30, name="reminders")
     if os.getenv("SMS_AUTO_IMPORT", "0") == "1":
         app.job_queue.run_repeating(sms_job, interval=900, first=60, name="sms")
+    app.job_queue.run_repeating(flush_job, interval=600, first=600, name="db-flush")
     log.info("Bot ishga tushdi. Daily report at %s (%s)", store.load_settings()["daily_time"], TZ)
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    base_url = (os.getenv("WEBHOOK_URL") or os.getenv("RENDER_EXTERNAL_URL") or "").rstrip("/")
+    try:
+        if base_url:
+            # Webhook mode (Render free web service): Telegram calls us, so the service wakes up on messages.
+            secret = re.sub(r"[^A-Za-z0-9_-]", "", token.split(":")[-1])[:64] or "tg"
+            app.run_webhook(
+                listen="0.0.0.0",
+                port=int(os.getenv("PORT", "10000")),
+                url_path=f"tg/{secret[:16]}",
+                webhook_url=f"{base_url}/tg/{secret[:16]}",
+                secret_token=secret,
+                allowed_updates=Update.ALL_TYPES,
+            )
+        else:
+            app.run_polling(allowed_updates=Update.ALL_TYPES)
+    finally:
+        db.flush()
 
 
 if __name__ == "__main__":

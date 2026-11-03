@@ -31,6 +31,9 @@ import store  # noqa: E402
 
 MONEY_DIR = store.ROOT / "out" / "money"
 TX_FILE = MONEY_DIR / "transactions.json"
+import db  # noqa: E402
+
+_db = db.backend({"transactions": TX_FILE}, lambda name: store.MSG_DIR / f"{name}.jsonl")
 
 SMS_SENDERS = [s.strip().lower() for s in os.getenv(
     "CARD_SMS_SENDERS",
@@ -176,17 +179,11 @@ def parse_notification(text: str, received: str | None = None) -> dict | None:
 # ---------- storage ----------
 
 def load() -> list[dict]:
-    try:
-        return json.loads(TX_FILE.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
+    return _db.get_doc("transactions", [])
 
 
 def _save(rows: list[dict]) -> None:
-    MONEY_DIR.mkdir(parents=True, exist_ok=True)
-    tmp = TX_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(TX_FILE)
+    _db.put_doc("transactions", rows)
 
 
 def _key(tx: dict) -> str:

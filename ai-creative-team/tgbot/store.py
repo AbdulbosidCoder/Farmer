@@ -23,6 +23,13 @@ SETTINGS_FILE = MSG_DIR / "settings.json"
 
 _lock = threading.Lock()
 
+import db  # noqa: E402  (after the paths above)
+
+_db = db.backend(
+    {"tasks": TASKS_FILE, "settings": SETTINGS_FILE},
+    lambda name: MSG_DIR / f"{name.split(':', 1)[1]}.jsonl",
+)
+
 DEFAULT_SETTINGS = {
     "daily_time": os.getenv("DAILY_TIME", "08:00"),
     "report_chat_id": int(os.getenv("REPORT_CHAT_ID")) if os.getenv("REPORT_CHAT_ID") else None,
@@ -37,37 +44,22 @@ def _ensure_dirs() -> None:
     PLAN_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _read_json(path: Path, default):
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        return default
-
-
-def _write_json(path: Path, data) -> None:
-    _ensure_dirs()
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(path)
-
-
 # ---------- settings ----------
 
 def load_settings() -> dict:
     data = dict(DEFAULT_SETTINGS)
-    data.update(_read_json(SETTINGS_FILE, {}))
+    data.update(_db.get_doc("settings", {}))
     return data
 
 
 def save_settings(settings: dict) -> None:
     with _lock:
-        _write_json(SETTINGS_FILE, settings)
+        _db.put_doc("settings", settings)
 
 
 # ---------- messages ----------
 
 def save_message(chat_id: int, chat_title: str, sender: str, date: datetime, text: str, msg_id: int | None = None) -> None:
-    _ensure_dirs()
     row = {
         "id": msg_id,
         "chat_id": chat_id,
@@ -76,29 +68,20 @@ def save_message(chat_id: int, chat_title: str, sender: str, date: datetime, tex
         "date": date.isoformat(),
         "text": text,
     }
-    with _lock, open(MSG_DIR / f"{chat_id}.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    _db.append(f"messages:{chat_id}", row)
 
 
 def load_messages(since: datetime | None = None) -> list[dict]:
     """All saved messages from every chat, oldest first, optionally newer than `since`."""
-    _ensure_dirs()
     rows: list[dict] = []
-    for path in MSG_DIR.glob("*.jsonl"):
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
+    for row in _db.lines("messages:"):
+        if since is not None:
             try:
-                row = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if since is not None:
-                try:
-                    if datetime.fromisoformat(row["date"]) <= since:
-                        continue
-                except (KeyError, ValueError):
+                if datetime.fromisoformat(row["date"]) <= since:
                     continue
-            rows.append(row)
+            except (KeyError, ValueError, TypeError):
+                continue
+        rows.append(row)
     rows.sort(key=lambda r: r.get("date", ""))
     return rows
 
@@ -110,12 +93,12 @@ def _norm(title: str) -> str:
 
 
 def load_tasks() -> list[dict]:
-    return _read_json(TASKS_FILE, [])
+    return _db.get_doc("tasks", [])
 
 
 def save_tasks(tasks: list[dict]) -> None:
     with _lock:
-        _write_json(TASKS_FILE, tasks)
+        _db.put_doc("tasks", tasks)
 
 
 def add_tasks(new: list[dict]) -> list[dict]:
